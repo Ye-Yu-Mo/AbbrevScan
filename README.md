@@ -1,5 +1,7 @@
 # 文档缩写提取工具 - 部署指南
 
+GitHub 仓库: [https://github.com/Ye-Yu-Mo/AbbrevScan](https://github.com/Ye-Yu-Mo/AbbrevScan)
+
 本文档提供从零开始部署文档缩写提取工具（AbbrevScan）的完整流程。
 
 ## 系统要求
