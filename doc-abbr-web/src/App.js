@@ -25,7 +25,7 @@ function App() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:8000/upload', {
+      const response = await fetch('http://47.92.242.94:8000/upload', {
         method: 'POST',
         body: formData,
       });
