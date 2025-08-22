@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 function App() {
   const [file, setFile] = useState(null);
   const [results, setResults] = useState([]);
+  const [filteredResults, setFilteredResults] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -23,6 +25,7 @@ function App() {
 
     setLoading(true);
     setError('');
+    setSearchTerm('');
 
     try {
       const response = await fetch('http://47.92.242.94:8000/upload', {
@@ -34,6 +37,7 @@ function App() {
 
       if (response.ok) {
         setResults(data.result || []);
+        setFilteredResults(data.result || []);
       } else {
         // Handle both error response formats
         const errorMessage = data.error || data.message || '文件处理失败';
@@ -43,6 +47,22 @@ function App() {
       setError('网络错误，请检查后端服务是否运行');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSearch = (e) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+    
+    if (term.trim() === '') {
+      setFilteredResults(results);
+    } else {
+      // Case-insensitive search that supports Unicode characters
+      const filtered = results.filter(item => 
+        item.key.toLowerCase().includes(term.toLowerCase()) ||
+        item.value.toLowerCase().includes(term.toLowerCase())
+      );
+      setFilteredResults(filtered);
     }
   };
 
@@ -106,7 +126,7 @@ function App() {
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-800">
-                提取结果 ({results.length} 条)
+                提取结果 ({filteredResults.length} 条)
               </h2>
               <button
                 onClick={downloadTxt}
@@ -114,6 +134,17 @@ function App() {
               >
                 下载 TXT
               </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="搜索缩写或全称..."
+                value={searchTerm}
+                onChange={handleSearch}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             <div className="overflow-x-auto">
@@ -129,7 +160,7 @@ function App() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {results.map((item, index) => (
+                  {filteredResults.map((item, index) => (
                     <tr key={index}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {item.key}

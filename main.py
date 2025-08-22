@@ -41,6 +41,11 @@ def parse_doc(path):
     return text
 
 def extract_abbr(text):
+    # Helper function to check if string contains any Unicode letter
+    def contains_letter(s):
+        # Returns True if the string contains any Unicode letter
+        return re.search(r'[^\W\d_]', s) is not None
+
     # Find all content within parentheses
     paren_pattern = re.compile(r"\((.*?)\)")
     num_re = re.compile(r"^\d+$")
@@ -48,29 +53,24 @@ def extract_abbr(text):
     
     # Find all parentheses content
     for paren_content in paren_pattern.findall(text):
-        # Look for comma followed by space and letter (A-Z or a-z)
-        # This pattern helps identify the abbreviation part
-        comma_pattern = re.compile(r",\s*([A-Za-z])")
-        match = comma_pattern.search(paren_content)
-        
-        if match:
-            # Found a comma followed by a letter
-            comma_pos = match.start()
-            # Split into full form (before comma) and abbreviation (after comma)
-            full_form = paren_content[:comma_pos].strip()
-            abbreviation = paren_content[comma_pos + 1:].strip()
-            
-            # Remove any trailing punctuation from abbreviation
-            abbreviation = re.sub(r'[^a-zA-Z0-9\s]', '', abbreviation)
+        # Check if there is a comma in the content
+        if ',' in paren_content:
+            parts = paren_content.split(',', 1)  # split on first comma
+            full_form = parts[0].strip()
+            abbreviation = parts[1].strip()
             
             # Filter out pure numbers and empty strings
             if (num_re.match(full_form) or num_re.match(abbreviation) or 
                 not full_form or not abbreviation):
                 continue
                 
+            # Check if abbreviation contains at least one letter (including Unicode)
+            if not contains_letter(abbreviation):
+                continue
+                
             results.add((abbreviation, full_form))
     
-    return sorted(results)  # 字典序排序
+    return sorted(results)  # sort by abbreviation
 
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
