@@ -30,6 +30,30 @@ ENV/
 env.bak/
 venv.bak/
 
+# Go
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/pkg/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Rust (for completeness, since Rust backend was removed)
+/target/
+**/*.rs.bk
+Cargo.lock
+
 # Node.js
 node_modules/
 npm-debug.log*
