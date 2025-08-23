@@ -5,8 +5,7 @@ SERVER_USER=root
 SERVER_IP=47.92.242.94
 SERVER_PATH=/var/www/html/
 BACKEND_PATH=/root/AbbrevScan/
-VENV_PATH=/root/AbbrevScan/venv
-UVICORN_PORT=8000
+GO_PORT=8000
 
 echo ">>> 构建前端项目..."
 cd doc-abbr-web || { echo "未找到前端目录"; exit 1; }
@@ -27,18 +26,21 @@ echo ">>> 部署后端项目..."
 ssh ${SERVER_USER}@${SERVER_IP} << EOF
     cd ${BACKEND_PATH} || { echo "Backend directory not found!"; exit 1; }
 
-    # 停掉旧的 uvicorn 服务（假设用 pkill）
-    pkill -f "uvicorn main:app" || echo "No existing uvicorn process."
+    # 停掉旧的 Go 服务
+    pkill -f "abbrevscan-go" || echo "No existing Go process."
 
     # 拉取最新代码
     git pull origin main
 
-    # 激活虚拟环境
-    source ${VENV_PATH}/bin/activate
+    # 下载 Go 依赖
+    go mod download
 
-    # 启动 uvicorn 后端服务（生产模式，多进程）
-    nohup uvicorn main:app --host 0.0.0.0 --port ${UVICORN_PORT} > server.log 2>&1 &
-    echo "后端启动成功!"
+    # 构建 Go 二进制文件
+    go build -o abbrevscan-go
+
+    # 启动 Go 后端服务
+    nohup ./abbrevscan-go > server.log 2>&1 &
+    echo "Go 后端启动成功!"
 EOF
 
 echo ">>> Deployment completed!"
