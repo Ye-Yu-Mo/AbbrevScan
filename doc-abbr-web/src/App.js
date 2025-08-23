@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
+import SnakeGame from './SnakeGame';
 
 // Translation strings
 const translations = {
@@ -36,7 +37,24 @@ const translations = {
     emptyState: '上传 .doc 或 .docx 文件以提取缩写内容',
     copySuccess: '结果已复制到剪贴板！',
     copyError: '无法复制到剪贴板:',
-    language: '语言'
+    language: '语言',
+    gameSelectionTitle: '等待时游戏选择:',
+    gameOptionNone: '无游戏',
+    gameOptionSnake: '贪吃蛇',
+    gameOption2048: '2048 (即将推出)',
+    snakeGameTitle: '贪吃蛇游戏 - 等待时消遣',
+    snakeGameScore: '得分:',
+    snakeGameOver: '游戏结束!',
+    snakeFinalScore: '最终得分:',
+    snakeRestart: '重新开始 (R)',
+    snakePaused: '游戏暂停',
+    snakeContinue: '按空格键继续',
+    snakeInstruction1: '方向键控制蛇的移动',
+    snakeInstruction2: '空格键暂停/继续游戏',
+    snakeInstruction3: 'R键重新开始游戏',
+    snakeInstruction4: '吃到红色食物得分',
+    snakeProcessing: '后端处理中... 玩会儿游戏等待吧!',
+    snakeInstructionsTitle: '操作说明:'
   },
   'zh-TW': {
     title: '文件縮寫提取工具',
@@ -69,7 +87,24 @@ const translations = {
     emptyState: '上傳 .doc 或 .docx 文件以提取縮寫內容',
     copySuccess: '結果已複製到剪貼簿！',
     copyError: '無法複製到剪貼簿:',
-    language: '語言'
+    language: '語言',
+    gameSelectionTitle: '等待時遊戲選擇:',
+    gameOptionNone: '無遊戲',
+    gameOptionSnake: '貪吃蛇',
+    gameOption2048: '2048 (即將推出)',
+    snakeGameTitle: '貪吃蛇遊戲 - 等待時消遣',
+    snakeGameScore: '得分:',
+    snakeGameOver: '遊戲結束!',
+    snakeFinalScore: '最終得分:',
+    snakeRestart: '重新開始 (R)',
+    snakePaused: '遊戲暫停',
+    snakeContinue: '按空格鍵繼續',
+    snakeInstruction1: '方向鍵控制蛇的移動',
+    snakeInstruction2: '空格鍵暫停/繼續遊戲',
+    snakeInstruction3: 'R鍵重新開始遊戲',
+    snakeInstruction4: '吃到紅色食物得分',
+    snakeProcessing: '後端處理中... 玩會兒遊戲等待吧!',
+    snakeInstructionsTitle: '操作說明:'
   },
   'en': {
     title: 'Document Abbreviation Extractor',
@@ -102,7 +137,24 @@ const translations = {
     emptyState: 'Upload .doc or .docx file to extract abbreviations',
     copySuccess: 'Results copied to clipboard!',
     copyError: 'Failed to copy to clipboard:',
-    language: 'Language'
+    language: 'Language',
+    gameSelectionTitle: 'Game selection while waiting:',
+    gameOptionNone: 'No game',
+    gameOptionSnake: 'Snake',
+    gameOption2048: '2048 (Coming soon)',
+    snakeGameTitle: 'Snake Game - Entertainment While Waiting',
+    snakeGameScore: 'Score:',
+    snakeGameOver: 'Game Over!',
+    snakeFinalScore: 'Final Score:',
+    snakeRestart: 'Restart (R)',
+    snakePaused: 'Game Paused',
+    snakeContinue: 'Press Space to Continue',
+    snakeInstruction1: 'Arrow keys to control snake movement',
+    snakeInstruction2: 'Space key to pause/resume game',
+    snakeInstruction3: 'R key to restart game',
+    snakeInstruction4: 'Eat red food to score points',
+    snakeProcessing: 'Backend processing... Play a game while waiting!',
+    snakeInstructionsTitle: 'Instructions:'
   }
 };
 
@@ -116,6 +168,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [language, setLanguage] = useState('zh-CN');
+  const [gameOption, setGameOption] = useState('snake'); // 'none', 'snake', '2048'
 
   const t = translations[language];
 
@@ -425,6 +478,52 @@ function App() {
               </div>
             )}
 
+            {/* Game Selection Options */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">{t.gameSelectionTitle}</p>
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="gameNone"
+                  name="gameOption"
+                  value="none"
+                  checked={gameOption === 'none'}
+                  onChange={(e) => setGameOption(e.target.value)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <label htmlFor="gameNone" className="ml-2 block text-sm text-gray-900">
+                  {t.gameOptionNone}
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="gameSnake"
+                  name="gameOption"
+                  value="snake"
+                  checked={gameOption === 'snake'}
+                  onChange={(e) => setGameOption(e.target.value)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <label htmlFor="gameSnake" className="ml-2 block text-sm text-gray-900">
+                  {t.gameOptionSnake}
+                </label>
+              </div>
+              <div className="flex items-center opacity-50">
+                <input
+                  type="radio"
+                  id="game2048"
+                  name="gameOption"
+                  value="2048"
+                  disabled
+                  className="h-4 w-4 text-gray-400 focus:ring-gray-500 border-gray-300"
+                />
+                <label htmlFor="game2048" className="ml-2 block text-sm text-gray-500">
+                  {t.gameOption2048}
+                </label>
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={loading || !file}
@@ -451,6 +550,9 @@ function App() {
             </button>
           </form>
         </div>
+
+        {/* Snake Game - Show while processing if snake option is selected */}
+        {loading && gameOption === 'snake' && <SnakeGame t={t} />}
 
         {/* Results Section */}
         {results.length > 0 && (
