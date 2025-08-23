@@ -1,12 +1,123 @@
 import React, { useState } from 'react';
+import * as XLSX from 'xlsx';
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType } from 'docx';
+import { saveAs } from 'file-saver';
+
+// Translation strings
+const translations = {
+  'zh-CN': {
+    title: '文档缩写提取工具',
+    rulesTitle: '提取规则说明',
+    rulesText1: '系统会自动提取文档中括号内的内容，识别格式为：(全称, 缩写)。例如：',
+    rulesExample1: '(bisphenol A, BPA)',
+    rulesText2: '会被提取为：',
+    rulesExample2: 'BPA bisphenol A',
+    rulesText3: '支持中英文及其他Unicode字符，自动过滤纯数字和无效内容。',
+    fileLabel: '选择文档文件 (.doc 或 .docx)',
+    uploadButton: '上传并提取缩写',
+    processing: '处理中...',
+    noFileError: '请选择要上传的文件',
+    processingError: '文件处理失败',
+    networkError: '网络错误，请检查后端服务是否运行',
+    resultsTitle: '提取结果',
+    resultsCount: '条',
+    downloadTxt: 'TXT',
+    downloadJson: 'JSON',
+    downloadCsv: 'CSV',
+    downloadExcel: 'Excel',
+    downloadWord: 'Word',
+    copy: '复制',
+    clear: '清除',
+    searchPlaceholder: '搜索缩写或全称...',
+    removeNumbers: '去除包含数字的项',
+    removeYears: '去除包含年份(1900-2100)的项',
+    keyHeader: '缩写 (Key)',
+    valueHeader: '全称 (Value)',
+    emptyState: '上传 .doc 或 .docx 文件以提取缩写内容',
+    copySuccess: '结果已复制到剪贴板！',
+    copyError: '无法复制到剪贴板:',
+    language: '语言'
+  },
+  'zh-TW': {
+    title: '文件縮寫提取工具',
+    rulesTitle: '提取規則說明',
+    rulesText1: '系統會自動提取文件中括號內的內容，識別格式為：(全稱, 縮寫)。例如：',
+    rulesExample1: '(bisphenol A, BPA)',
+    rulesText2: '會被提取為：',
+    rulesExample2: 'BPA bisphenol A',
+    rulesText3: '支持中英文及其他Unicode字符，自動過濾純數字和無效內容。',
+    fileLabel: '選擇文件檔案 (.doc 或 .docx)',
+    uploadButton: '上傳並提取縮寫',
+    processing: '處理中...',
+    noFileError: '請選擇要上傳的文件',
+    processingError: '文件處理失敗',
+    networkError: '網絡錯誤，請檢查後端服務是否運行',
+    resultsTitle: '提取結果',
+    resultsCount: '條',
+    downloadTxt: 'TXT',
+    downloadJson: 'JSON',
+    downloadCsv: 'CSV',
+    downloadExcel: 'Excel',
+    downloadWord: 'Word',
+    copy: '複製',
+    clear: '清除',
+    searchPlaceholder: '搜索縮寫或全稱...',
+    removeNumbers: '去除包含數字的項',
+    removeYears: '去除包含年份(1900-2100)的項',
+    keyHeader: '縮寫 (Key)',
+    valueHeader: '全稱 (Value)',
+    emptyState: '上傳 .doc 或 .docx 文件以提取縮寫內容',
+    copySuccess: '結果已複製到剪貼簿！',
+    copyError: '無法複製到剪貼簿:',
+    language: '語言'
+  },
+  'en': {
+    title: 'Document Abbreviation Extractor',
+    rulesTitle: 'Extraction Rules',
+    rulesText1: 'The system automatically extracts content within parentheses in the format: (full name, abbreviation). For example:',
+    rulesExample1: '(bisphenol A, BPA)',
+    rulesText2: 'will be extracted as:',
+    rulesExample2: 'BPA bisphenol A',
+    rulesText3: 'Supports Chinese, English and other Unicode characters, automatically filters pure numbers and invalid content.',
+    fileLabel: 'Select document file (.doc or .docx)',
+    uploadButton: 'Upload and Extract Abbreviations',
+    processing: 'Processing...',
+    noFileError: 'Please select a file to upload',
+    processingError: 'File processing failed',
+    networkError: 'Network error, please check if the backend service is running',
+    resultsTitle: 'Extraction Results',
+    resultsCount: 'items',
+    downloadTxt: 'TXT',
+    downloadJson: 'JSON',
+    downloadCsv: 'CSV',
+    downloadExcel: 'Excel',
+    downloadWord: 'Word',
+    copy: 'Copy',
+    clear: 'Clear',
+    searchPlaceholder: 'Search abbreviation or full name...',
+    removeNumbers: 'Remove items containing numbers',
+    removeYears: 'Remove items containing years (1900-2100)',
+    keyHeader: 'Abbreviation (Key)',
+    valueHeader: 'Full Name (Value)',
+    emptyState: 'Upload .doc or .docx file to extract abbreviations',
+    copySuccess: 'Results copied to clipboard!',
+    copyError: 'Failed to copy to clipboard:',
+    language: 'Language'
+  }
+};
 
 function App() {
   const [file, setFile] = useState(null);
   const [results, setResults] = useState([]);
   const [filteredResults, setFilteredResults] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [removeNumbers, setRemoveNumbers] = useState(false);
+  const [removeYears, setRemoveYears] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [language, setLanguage] = useState('zh-CN');
+
+  const t = translations[language];
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -16,7 +127,7 @@ function App() {
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!file) {
-      setError('请选择要上传的文件');
+      setError(t.noFileError);
       return;
     }
 
@@ -36,34 +147,79 @@ function App() {
       const data = await response.json();
 
       if (response.ok) {
-        setResults(data.result || []);
-        setFilteredResults(data.result || []);
+        const newResults = data.result || [];
+        setResults(newResults);
+        setFilteredResults(newResults);
       } else {
-        // Handle both error response formats
-        const errorMessage = data.error || data.message || '文件处理失败';
+        const errorMessage = data.error || data.message || t.processingError;
         setError(errorMessage);
       }
     } catch (err) {
-      setError('网络错误，请检查后端服务是否运行');
+      setError(t.networkError);
     } finally {
       setLoading(false);
     }
   };
 
+  // Helper function to check if a string contains a year between 1900 and 2100
+  const containsYearInRange = (str) => {
+    if (!str) return false;
+    const matches = str.match(/\d{4}/g);
+    if (matches) {
+      for (const match of matches) {
+        const year = parseInt(match, 10);
+        if (year >= 1900 && year <= 2100) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
+  const filterResults = (results, searchTerm, removeNumbers, removeYears) => {
+    let filtered = results;
+    
+    if (searchTerm.trim() !== '') {
+      filtered = filtered.filter(item => 
+        item.key.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.value.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    if (removeNumbers) {
+      filtered = filtered.filter(item => 
+        !/\d/.test(item.key) && !/\d/.test(item.value)
+      );
+    }
+    
+    if (removeYears) {
+      filtered = filtered.filter(item => {
+        return !containsYearInRange(item.key) && !containsYearInRange(item.value);
+      });
+    }
+    
+    return filtered;
+  };
+
   const handleSearch = (e) => {
     const term = e.target.value;
     setSearchTerm(term);
-    
-    if (term.trim() === '') {
-      setFilteredResults(results);
-    } else {
-      // Case-insensitive search that supports Unicode characters
-      const filtered = results.filter(item => 
-        item.key.toLowerCase().includes(term.toLowerCase()) ||
-        item.value.toLowerCase().includes(term.toLowerCase())
-      );
-      setFilteredResults(filtered);
-    }
+    const filtered = filterResults(results, term, removeNumbers, removeYears);
+    setFilteredResults(filtered);
+  };
+
+  const handleRemoveNumbersChange = (e) => {
+    const shouldRemove = e.target.checked;
+    setRemoveNumbers(shouldRemove);
+    const filtered = filterResults(results, searchTerm, shouldRemove, removeYears);
+    setFilteredResults(filtered);
+  };
+
+  const handleRemoveYearsChange = (e) => {
+    const shouldRemove = e.target.checked;
+    setRemoveYears(shouldRemove);
+    const filtered = filterResults(results, searchTerm, removeNumbers, shouldRemove);
+    setFilteredResults(filtered);
   };
 
   const downloadTxt = () => {
@@ -88,15 +244,80 @@ function App() {
     a.click();
   };
 
+  const downloadCsv = () => {
+    if (results.length === 0) return;
+  
+    const header = ['key', 'value'];
+    const rows = results.map(item => [item.key, item.value]);
+  
+    let csvContent = "data:text/csv;charset=utf-8," 
+      + header.join(",") + "\n" 
+      + rows.map(e => e.join(",")).join("\n");
+  
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "result.csv");
+    document.body.appendChild(link); 
+    link.click();
+  };
+
+  const downloadExcel = () => {
+    if (results.length === 0) return;
+
+    const worksheet = XLSX.utils.json_to_sheet(results);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Results");
+    XLSX.writeFile(workbook, "result.xlsx");
+  };
+
+  const downloadWord = () => {
+    if (results.length === 0) return;
+  
+    const table = new Table({
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [new Paragraph({ text: "Key", bold: true })],
+              width: { size: 50, type: WidthType.PERCENTAGE },
+            }),
+            new TableCell({
+              children: [new Paragraph({ text: "Value", bold: true })],
+              width: { size: 50, type: WidthType.PERCENTAGE },
+            }),
+          ],
+        }),
+        ...results.map(item => new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph(item.key)] }),
+            new TableCell({ children: [new Paragraph(item.value)] }),
+          ],
+        })),
+      ],
+      width: { size: 100, type: WidthType.PERCENTAGE },
+    });
+  
+    const doc = new Document({
+      sections: [{
+        children: [table],
+      }],
+    });
+  
+    Packer.toBlob(doc).then(blob => {
+      saveAs(blob, "result.docx");
+    });
+  };
+
   const copyToClipboard = async () => {
     if (results.length === 0) return;
 
     const content = results.map(d => `${d.key} ${d.value}`).join("\n");
     try {
       await navigator.clipboard.writeText(content);
-      alert('结果已复制到剪贴板！');
+      alert(t.copySuccess);
     } catch (err) {
-      console.error('无法复制到剪贴板:', err);
+      console.error(t.copyError, err);
     }
   };
 
@@ -105,69 +326,101 @@ function App() {
     setFilteredResults([]);
     setSearchTerm('');
     setFile(null);
-    // Clear file input
     const fileInput = document.querySelector('input[type="file"]');
     if (fileInput) {
       fileInput.value = '';
     }
   };
 
+  const handleLanguageChange = (e) => {
+    setLanguage(e.target.value);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 py-8">
       <div className="max-w-4xl mx-auto px-4">
-        {/* Header with GitHub link */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">
-            文档缩写提取工具
+        {/* Header with language selector and GitHub link */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 text-center sm:text-left">
+            {t.title}
           </h1>
-          <a
-            href="https://github.com/Ye-Yu-Mo/AbbrevScan"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-600 hover:text-gray-900"
-          >
-            <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-            </svg>
-          </a>
+          <div className="flex items-center space-x-3 self-center sm:self-auto">
+            {/* Language selector */}
+            <select
+              value={language}
+              onChange={handleLanguageChange}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="zh-CN">简体中文</option>
+              <option value="zh-TW">繁體中文</option>
+              <option value="en">English</option>
+            </select>
+            
+            <a
+              href="https://github.com/Ye-Yu-Mo/AbbrevScan"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path fillRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.492.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.031-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.378.203 2.398.1 2.651.64.7 1.03 1.595 1.03 2.688 0 3.848-2.338 4.695-4.566 4.942.359.308.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.001 10.001 0 0022 12c0-5.523-4.477-10-10-10z" clipRule="evenodd" />
+              </svg>
+            </a>
+          </div>
         </div>
 
         {/* Abbreviation Rules Hint */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
-          <h3 className="text-lg font-semibold text-blue-800 mb-2">提取规则说明</h3>
+          <h3 className="text-lg font-semibold text-blue-800 mb-2">{t.rulesTitle}</h3>
           <p className="text-blue-700 text-sm">
-            系统会自动提取文档中括号内的内容，识别格式为：(全称, 缩写)。例如：
-            <code className="bg-blue-100 px-1 mx-1 rounded">(bisphenol A, BPA)</code> 
-            会被提取为：
-            <code className="bg-blue-100 px-1 mx-1 rounded">BPA bisphenol A</code>
+            {t.rulesText1}
+            <code className="bg-blue-100 px-1 mx-1 rounded">{t.rulesExample1}</code> 
+            {t.rulesText2}
+            <code className="bg-blue-100 px-1 mx-1 rounded">{t.rulesExample2}</code>
           </p>
           <p className="text-blue-700 text-sm mt-2">
-            支持中英文及其他Unicode字符，自动过滤纯数字和无效内容。
+            {t.rulesText3}
           </p>
         </div>
 
         {/* Upload Form */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <form onSubmit={handleUpload} className="space-y-4">
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                选择文档文件 (.doc 或 .docx)
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  {t.fileLabel}
+                </div>
               </label>
               <input
                 type="file"
                 accept=".doc,.docx"
                 onChange={handleFileChange}
                 className="block w-full text-sm text-gray-500
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-semibold
+                  file:mr-4 file:py-3 file:px-4
+                  file:rounded-lg file:border-0
+                  file:text-sm file:font-medium
                   file:bg-blue-50 file:text-blue-700
-                  hover:file:bg-blue-100"
+                  hover:file:bg-blue-100 transition-colors"
               />
+              {file && (
+                <div className="mt-2 text-sm text-green-600 flex items-center">
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {file.name}
+                </div>
+              )}
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
                 {error}
               </div>
             )}
@@ -175,18 +428,26 @@ function App() {
             <button
               type="submit"
               disabled={loading || !file}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 
-                disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 
+                disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center 
+                transition-colors duration-200 font-medium"
             >
               {loading ? (
                 <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  处理中...
+                  {t.processing}
                 </>
-              ) : '上传并提取缩写'}
+              ) : (
+                <>
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                  </svg>
+                  {t.uploadButton}
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -194,43 +455,82 @@ function App() {
         {/* Results Section */}
         {results.length > 0 && (
           <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
               <h2 className="text-xl font-semibold text-gray-800">
-                提取结果 ({filteredResults.length} 条)
+                {t.resultsTitle} ({filteredResults.length} {t.resultsCount})
               </h2>
-              <div className="flex space-x-2">
+            <div className="flex flex-wrap gap-2">
                 <button
                   onClick={downloadTxt}
-                  className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 text-sm"
+                  className="bg-green-600 text-white py-2 px-3 rounded-md hover:bg-green-700 text-sm flex items-center transition-colors"
                 >
-                  TXT
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.极7V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {t.downloadTxt}
                 </button>
                 <button
                   onClick={downloadJSON}
-                  className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 text-sm"
+                  className="bg-blue-600 text-white py-2 px-3 rounded-md hover:bg-blue-700 text-sm flex items-center transition-colors"
                 >
-                  JSON
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {t.downloadJson}
+                </button>
+                <button
+                  onClick={downloadCsv}
+                  className="bg-yellow-600 text-white py-2 px-3 rounded-md hover:bg-yellow-700 text-sm flex items-center transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {t.downloadCsv}
+                </button>
+                <button
+                  onClick={downloadExcel}
+                  className="bg-green-700 text-white py-2 px-3 rounded-md hover:bg-green-800 text-sm flex items-center transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {t.downloadExcel}
+                </button>
+                <button
+                  onClick={downloadWord}
+                  className="bg-blue-700 text-white py-2 px-3 rounded-md hover:bg-blue-800 text-sm flex items-center transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {t.downloadWord}
                 </button>
                 <button
                   onClick={copyToClipboard}
-                  className="bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 text-sm"
+                  className="bg-purple-600 text-white py-2 px-3 rounded-md hover:bg-purple-700 text-sm flex items-center transition-colors"
                 >
-                  复制
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 极 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  {t.copy}
                 </button>
                 <button
                   onClick={clearResults}
-                  className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 text-sm"
+                  className="bg-red-600 text-white py-2 px-3 rounded-md hover:bg-red-700 text-sm flex items-center transition-colors"
                 >
-                  清除
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  {t.clear}
                 </button>
               </div>
             </div>
 
-            {/* Search Input with loading indicator */}
+            {/* Search Input */}
             <div className="mb-4 relative">
               <input
                 type="text"
-                placeholder="搜索缩写或全称..."
+                placeholder={t.searchPlaceholder}
                 value={searchTerm}
                 onChange={handleSearch}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
@@ -245,15 +545,43 @@ function App() {
               )}
             </div>
 
+            {/* Filter options */}
+            <div className="mb-4 flex flex-col space-y-2">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="removeNumbers"
+                  checked={removeNumbers}
+                  onChange={handleRemoveNumbersChange}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="removeNumbers" className="ml-2 block text-sm text-gray-900">
+                  {t.removeNumbers}
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="removeYears"
+                  checked={removeYears}
+                  onChange={handleRemoveYearsChange}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="removeYears" className="ml-2 block text-sm text-gray-900">
+                  {t.removeYears}
+                </label>
+              </div>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      缩写 (Key)
+                      {t.keyHeader}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      全称 (Value)
+                      {t.valueHeader}
                     </th>
                   </tr>
                 </thead>
@@ -276,7 +604,7 @@ function App() {
 
         {results.length === 0 && !loading && !error && (
           <div className="text-center text-gray-500 py-8">
-            <p>上传 .doc 或 .docx 文件以提取缩写内容</p>
+            <p>{t.emptyState}</p>
           </div>
         )}
       </div>
