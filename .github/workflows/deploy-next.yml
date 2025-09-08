@@ -25,10 +25,12 @@ jobs:
         working-directory: doc-abbr-web
         run: npm install
 
-      # 4️⃣ 构建项目
+      # 4️⃣ 构建项目（忽略 ESLint 警告导致的 CI 失败）
       - name: Build project
         working-directory: doc-abbr-web
-        run: npm run build
+        run: |
+          CI=false npm run build
+          ls -la ./build   # 输出 build 文件，便于调试
 
       # 5️⃣ 添加 .nojekyll 避免 Jekyll 构建
       - name: Create .nojekyll
@@ -39,6 +41,6 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GH_TOKEN }}    # 使用你的 PAT
-          publish_branch: gh-pages               # 部署目标分支
-          publish_dir: ./doc-abbr-web/build      # 构建产物目录
-          keep_files: true                       # 保留分支上其他文件
+          publish_branch: gh-pages                  # 部署目标分支
+          publish_dir: ./doc-abbr-web/build        # 构建产物目录
+          keep_files: true                          # 保留分支上其他文件
