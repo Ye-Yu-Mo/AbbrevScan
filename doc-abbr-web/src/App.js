@@ -192,7 +192,7 @@ function App() {
     setSearchTerm('');
 
     try {
-      const response = await fetch('https://abbrevscan.onrender.com:8000/upload', {
+      const response = await fetch('https://abbrevscan.onrender.com:8000/uploads', {
         method: 'POST',
         body: formData,
       });
