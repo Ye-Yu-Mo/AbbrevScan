@@ -1,16 +1,17 @@
 name: Build and Deploy Next.js to GitHub Pages
 
+# 触发条件：每次 push 到 main 分支
 on:
   push:
     branches:
-      - main   # 每次 push 到 main 分支触发
+      - main
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ 拉取仓库
+      # 1️⃣ 检出仓库代码
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -25,17 +26,16 @@ jobs:
         working-directory: doc-abbr-next
         run: npm install
 
-      # 4️⃣ 构建 Next.js（静态导出）
+      # 4️⃣ 构建 Next.js 静态站点
       - name: Build project
         working-directory: doc-abbr-next
         run: npm run build
 
-      # 5️⃣ 部署到 main 分支的 docs/ 子目录
+      # 5️⃣ 部署到 gh-pages 分支
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: main           # 部署到 main 分支
-          publish_dir: ./doc-abbr-next/out # 构建产物路径
-          destination_dir: docs         # 只覆盖 docs/ 子目录
-          keep_files: true              # 保留其他文件
+          publish_branch: gh-pages          # 部署目标分支
+          publish_dir: ./doc-abbr-next/out  # 构建产物路径
+          keep_files: true                  # 保留分支上其他文件
