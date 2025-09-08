@@ -1,4 +1,4 @@
-name: Build and Deploy Next.js to GitHub Pages
+name: Build and Deploy doc-addr-web to GitHub Pages
 
 on:
   push:
@@ -22,17 +22,17 @@ jobs:
 
       # 3️⃣ 安装依赖
       - name: Install dependencies
-        working-directory: doc-abbr-next
+        working-directory: doc-addr-web
         run: npm install
 
-      # 4️⃣ 构建 Next.js 静态站点
+      # 4️⃣ 构建项目
       - name: Build project
-        working-directory: doc-abbr-next
+        working-directory: doc-addr-web
         run: npm run build
 
       # 5️⃣ 添加 .nojekyll 避免 Jekyll 构建
       - name: Create .nojekyll
-        run: echo "" > ./doc-abbr-next/out/.nojekyll
+        run: echo "" > ./doc-addr-web/build/.nojekyll
 
       # 6️⃣ 部署到 gh-pages 分支
       - name: Deploy to GitHub Pages
@@ -40,5 +40,5 @@ jobs:
         with:
           github_token: ${{ secrets.GH_TOKEN }}    # 使用你的 PAT
           publish_branch: gh-pages               # 部署目标分支
-          publish_dir: ./doc-abbr-next/out       # 构建产物目录
+          publish_dir: ./doc-addr-web/build      # 构建产物目录
           keep_files: true                       # 保留分支上其他文件
