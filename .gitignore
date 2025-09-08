@@ -64,6 +64,13 @@ lerna-debug.log*
 # React build
 doc-abbr-web/build/
 
+# Next.js build
+doc-abbr-next/.next/
+doc-abbr-next/out/
+doc-abbr-next/.vercel/
+doc-abbr-next/*.tsbuildinfo
+doc-abbr-next/next-env.d.ts
+
 # IDE
 .vscode/
 .idea/
