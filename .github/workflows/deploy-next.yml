@@ -35,7 +35,7 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GH_TOKEN }}
           publish_branch: gh-pages          # 部署目标分支
           publish_dir: ./doc-abbr-next/out  # 构建产物路径
           keep_files: true                  # 保留分支上其他文件
